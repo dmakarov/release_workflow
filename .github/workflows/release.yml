@@ -6,44 +6,72 @@ name: Build and release
 jobs:
   build:
     name: Upload Release Asset
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+        - target: x86_64-unknown-linux-gnu
+          os: ubuntu-latest
+          rust: stable
+          tar: linux
+        - target: x86_64-apple-darwin
+          os: macos-latest
+          rust: stable
+          tar: macos
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Build project
-        run: |
-          tar -jcf tarball-macos.tar.bz2 ./README.md
-          tar -jcf tarball-linux.tar.bz2 ./LICENSE
-      - name: Create Release
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: false
-      - name: Upload Linux tarball
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        id: upload-release-linux
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./tarball-linux.tar.bz2
-          asset_name: tarball-linux.tar.bz2
-          asset_content_type: application/zip
-      - name: Upload macOS tarball
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        id: upload-release-macos
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./tarball-macos.tar.bz2
-          asset_name: tarball-macos.tar.bz2
-          asset_content_type: application/zip
+    - name: Checkout code
+      uses: actions/checkout@v2
+    - name: Build project on ${{ matrix.os }}
+      run: |
+        tar -jcf tarball-${{ matrix.tar }}.tar.bz2 ./README.md
+    - name: Upload tarball
+      uses: actions/upload-artifact@v2
+      with:
+        name: tarball-${{ matrix.tar }}.tar.bz2
+        path: tarball-${{ matrix.tar }}.tar.bz2
+
+  release:
+    name: Upload Release Assets
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    steps:
+    - name: Download Linux tarball
+      uses: actions/download-artifact@v2
+      with:
+        name: tarball-linux.tar.bz2
+    - name: Download macOS tarball
+      uses: actions/download-artifact@v2
+      with:
+        name: tarball-macos.tar.bz2
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
+    - name: Upload Linux tarball
+      id: upload-release-linux
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./tarball-linux.tar.bz2
+        asset_name: tarball-linux.tar.bz2
+        asset_content_type: application/zip
+    - name: Upload macOS tarball
+      id: upload-release-macos
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./tarball-macos.tar.bz2
+        asset_name: tarball-macos.tar.bz2
+        asset_content_type: application/zip
