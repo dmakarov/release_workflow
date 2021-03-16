@@ -33,7 +33,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./tarball-macos.tar.bz2
+          asset_path: ./tarball-linux.tar.bz2
           asset_name: tarball-linux.tar.bz2
           asset_content_type: application/zip
       - name: Upload macOS tarball
